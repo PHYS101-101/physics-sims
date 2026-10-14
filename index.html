@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Physics Lab</title>
+    <!-- KaTeX 수식 렌더링 라이브러리 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 40px 20px; color: #222; }
+        .wrap { max-width: 960px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 40px; }
+        h1 { margin-bottom: 8px; color: #1a365d; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
+        .card { background: #fff; border-radius: 12px; padding: 22px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; }
+        .card h3 { margin-top: 0; color: #2b6cb0; }
+        .card p { font-size: 14px; color: #4a5568; line-height: 1.6; }
+        .btn { display: inline-block; text-align: center; background: #3182ce; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; margin-top: 12px; }
+        .btn:hover { background: #2b6cb0; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>Interactive Physics Simulations</h1>
+        <p>웹 브라우저에서 실시간으로 조작하며 원리를 탐구하는 물리 시뮬레이션 아카이브</p>
+    </header>
+
+    <div class="grid">
+        <!-- 시뮬레이션 1: 전자기 유도 -->
+        <div class="card">
+            <div>
+                <h3>1. 전자기 유도 (Electromagnetic Induction)</h3>
+                <p>균일한 자기장 $B$ 속에서 각속도 $\omega$로 회전하는 사각형 코일의 자기선속 $\Phi(t) = BA\cos(\omega t)$와 유도 전류 $I(t) \propto -\frac{d\Phi}{dt}$의 위상차를 3D로 관찰합니다.</p>
+            </div>
+            <a href="em_induction.html" class="btn">시뮬레이션 실행 →</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electromagnetic Induction 3D Simulation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #eef1f5;
+            margin: 0;
+            padding: 25px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background: #f8f9fa;
+            padding: 20px 25px;
+            border-radius: 12px;
+            border: 1px solid #d0d7de;
+            max-width: 1120px;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #1f2328;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 22px;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            margin-bottom: 16px;
+        }
+        .slider-group label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .slider-group input[type="range"] {
+            width: 190px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            padding: 8px 15px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: opacity 0.15s;
+        }
+        button:hover {
+            opacity: 0.85;
+        }
+        #btnPause {
+            border: 1px solid #888;
+            background: #e6e8eb;
+            color: #222;
+        }
+        #btnReset {
+            border: 1px solid #c01c28;
+            background: #ffeef0;
+            color: #c01c28;
+        }
+        #statusBox {
+            font-size: 13.5px;
+            font-family: Consolas, monospace;
+            font-weight: bold;
+            background: #fffbea;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #e5d890;
+            color: #333;
+        }
+        .canvas-row {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .canvas-col {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        canvas {
+            background: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        #canvas3D {
+            cursor: grab;
+        }
+        .hint {
+            position: absolute;
+            bottom: 10px;
+            left: 12px;
+            font-size: 11.5px;
+            color: #555;
+            pointer-events: none;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Electromagnetic Induction: Real-Time 3D Simulation</h2>
+    
+    <!-- Controls -->
+    <div class="controls">
+        <div class="slider-group">
+            <label style="color: #1a5fb4;">Magnetic Field (<i>B</i>): <span id="valB">1.0</span></label><br>
+            <input type="range" id="sliderB" min="0.2" max="3.0" step="0.1" value="1.0">
+        </div>
+        <div class="slider-group">
+            <label style="color: #c01c28;">Angular Velocity (<i>&omega;</i>): <span id="valW">1.0</span> rad/s</label><br>
+            <input type="range" id="sliderW" min="0.2" max="3.0" step="0.1" value="1.0">
+        </div>
+        <div class="btn-group">
+            <button id="btnPause">⏸ Pause</button>
+            <button id="btnReset">↺ Reset</button>
+        </div>
+        <div id="statusBox">
+            θ: 0° | Φ: +1.00 | I: +0.00
+        </div>
+    </div>
+
+    <!-- Canvases -->
+    <div class="canvas-row">
+        <div style="position: relative;">
+            <canvas id="canvas3D" width="550" height="480"></canvas>
+            <div class="hint">
+                🖱️ Drag on 3D view to rotate camera | Orange/Cyan edges: Coil | Red arrows: Induced Current (I)
+            </div>
+        </div>
+        <div class="canvas-col">
+            <canvas id="canvasFlux" width="510" height="234"></canvas>
+            <canvas id="canvasCurr" width="510" height="234"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const c3d = document.getElementById('canvas3D');
+    const ctx3d = c3d.getContext('2d');
+    const cFlux = document.getElementById('canvasFlux');
+    const ctxFlux = cFlux.getContext('2d');
+    const cCurr = document.getElementById('canvasCurr');
+    const ctxCurr = cCurr.getContext('2d');
+
+    let B = 3.0, w = 1.0, t = 0.0, theta = 0.0;
+    let paused = false;
+    const dt = 0.025, windowT = 10.0;
+    let hist = [];
+
+    // 3D Camera Angles (Interactive Drag)
+    let camAzim = -0.9, camElev = 0.42;
+    let isDragging = false, lastX = 0, lastY = 0;
+
+    c3d.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; c3d.style.cursor = 'grabbing'; });
+    window.addEventListener('mouseup', () => { isDragging = false; c3d.style.cursor = 'grab'; });
+    window.addEventListener('mousemove', e => {
+        if (!isDragging) return;
+        camAzim += (e.clientX - lastX) * 0.01;
+        camElev = Math.max(-1.2, Math.min(1.2, camElev + (e.clientY - lastY) * 0.01));
+        lastX = e.clientX; lastY = e.clientY;
+    });
+
+    const sB = document.getElementById('sliderB');
+    const sW = document.getElementById('sliderW');
+    const vB = document.getElementById('valB');
+    const vW = document.getElementById('valW');
+    const btnPause = document.getElementById('btnPause');
+    const btnReset = document.getElementById('btnReset');
+    const statusBox = document.getElementById('statusBox');
+
+    sB.oninput = () => { B = parseFloat(sB.value); vB.textContent = B.toFixed(1); };
+    sW.oninput = () => { w = parseFloat(sW.value); vW.textContent = w.toFixed(1); };
+    btnPause.onclick = () => { paused = !paused; btnPause.textContent = paused ? '▶ Play' : '⏸ Pause'; };
+    btnReset.onclick = () => {
+        t = 0; theta = 0; hist = [];
+        sB.value = 1.0; sW.value = 1.0; B = 1.0; w = 1.0;
+        vB.textContent = "1.0"; vW.textContent = "1.0";
+    };
+
+    // 3D to 2D Projection
+    function project(x, y, z) {
+        const cosA = Math.cos(camAzim), sinA = Math.sin(camAzim);
+        const cosE = Math.cos(camElev), sinE = Math.sin(camElev);
+        const x1 = x * cosA - y * sinA;
+        const y1 = x * sinA + y * cosA;
+        const z2 = z * cosE - y1 * sinE;
+        const depth = z * sinE + y1 * cosE;
+        const scale = 95 * (6.5 / (6.5 + depth * 0.35));
+        return { px: c3d.width / 2 + x1 * scale, py: c3d.height / 2 - z2 * scale, depth: depth };
+    }
+
+    function drawArrow3D(p1, p2, color, lw=2, headSize=7) {
+        const a = project(p1[0], p1[1], p1[2]);
+        const b = project(p2[0], p2[1], p2[2]);
+        ctx3d.strokeStyle = color; ctx3d.fillStyle = color; ctx3d.lineWidth = lw;
+        ctx3d.beginPath(); ctx3d.moveTo(a.px, a.py); ctx3d.lineTo(b.px, b.py); ctx3d.stroke();
+        const ang = Math.atan2(b.py - a.py, b.px - a.px);
+        ctx3d.beginPath();
+        ctx3d.moveTo(b.px, b.py);
+        ctx3d.lineTo(b.px - headSize * Math.cos(ang - 0.4), b.py - headSize * Math.sin(ang - 0.4));
+        ctx3d.lineTo(b.px - headSize * Math.cos(ang + 0.4), b.py - headSize * Math.sin(ang + 0.4));
+        ctx3d.closePath(); ctx3d.fill();
+    }
+
+    function drawPoly3D(pts, fillCol, strokeCol, lw=1) {
+        const proj = pts.map(p => project(p[0], p[1], p[2]));
+        ctx3d.fillStyle = fillCol; ctx3d.strokeStyle = strokeCol; ctx3d.lineWidth = lw;
+        ctx3d.beginPath();
+        ctx3d.moveTo(proj[0].px, proj[0].py);
+        for (let i=1; i<proj.length; i++) ctx3d.lineTo(proj[i].px, proj[i].py);
+        ctx3d.closePath();
+        if (fillCol) ctx3d.fill();
+        if (strokeCol) ctx3d.stroke();
+    }
+
+    function render3D(flux, curr) {
+        ctx3d.clearRect(0, 0, c3d.width, c3d.height);
+        ctx3d.font = "bold 14px Arial";
+        ctx3d.fillStyle = "#222";
+        ctx3d.fillText("3D Rotating Coil in Uniform B-Field (N → S)", 15, 25);
+
+        // N Pole (Left, x = -2.1)
+        const nPole = [[-2.1, -1.5, -1.3], [-2.1, 1.5, -1.3], [-2.1, 1.5, 1.3], [-2.1, -1.5, 1.3]];
+        drawPoly3D(nPole, `rgba(230, 50, 50, ${0.18 + 0.08*B})`, "rgba(200, 30, 30, 0.6)", 1.5);
+        const nTxt = project(-2.1, 0, 1.5);
+        ctx3d.fillStyle = "#d01010"; ctx3d.font = "bold 15px Arial";
+        ctx3d.fillText("N Pole", nTxt.px - 22, nTxt.py);
+
+        // Uniform B-Field Lines (Left N -> Right S)
+        const bAlpha = Math.min(0.8, 0.2 + 0.18 * B);
+        const bLw = 0.8 + 0.5 * B;
+        for (let y of [-1.0, 0, 1.0]) {
+            for (let z of [-0.8, 0, 0.8]) {
+                drawArrow3D([-1.9, y, z], [1.9, y, z], `rgba(0, 130, 130, ${bAlpha})`, bLw, 6);
+            }
+        }
+
+        // Rotation Axis (y-axis)
+        const ax1 = project(0, -2.0, 0), ax2 = project(0, 2.0, 0);
+        ctx3d.strokeStyle = "#888"; ctx3d.setLineDash([5, 5]); ctx3d.lineWidth = 1.2;
+        ctx3d.beginPath(); ctx3d.moveTo(ax1.px, ax1.py); ctx3d.lineTo(ax2.px, ax2.py); ctx3d.stroke();
+        ctx3d.setLineDash([]);
+
+        // Rotating Rectangular Coil
+        const L = 1.25, W = 1.35;
+        const ux = -L * Math.sin(theta), uz = L * Math.cos(theta);
+        const P1 = [ux, -W, uz], P2 = [ux, W, uz], P3 = [-ux, W, -uz], P4 = [-ux, -W, -uz];
+
+        const faceAlpha = Math.min(0.65, 0.1 + 0.15 * Math.abs(flux));
+        drawPoly3D([P1, P2, P3, P4], `rgba(255, 215, 0, ${faceAlpha})`, null, 0);
+
+        // Normal Vector n
+        const nx = 1.0 * Math.cos(theta), nz = 1.0 * Math.sin(theta);
+        drawArrow3D([0, 0, 0], [nx, 0, nz], "#1b8a2f", 2.5, 8);
+        const nVecTxt = project(nx * 1.2, 0, nz * 1.2);
+        ctx3d.fillStyle = "#1b8a2f"; ctx3d.font = "bold 12px Arial";
+        ctx3d.fillText("n", nVecTxt.px, nVecTxt.py);
+
+        // Coil Edges
+        const wireLw = Math.min(7.5, 2.5 + 0.7 * Math.abs(curr));
+        const edges = [
+            {s: P1, e: P2, col: "#e67700"},
+            {s: P2, e: P3, col: "#222222"},
+            {s: P3, e: P4, col: "#0b7285"},
+            {s: P4, e: P1, col: "#222222"}
+        ];
+        edges.forEach(ed => {
+            const pA = project(ed.s[0], ed.s[1], ed.s[2]);
+            const pB = project(ed.e[0], ed.e[1], ed.e[2]);
+            ctx3d.strokeStyle = ed.col; ctx3d.lineWidth = wireLw;
+            ctx3d.beginPath(); ctx3d.moveTo(pA.px, pA.py); ctx3d.lineTo(pB.px, pB.py); ctx3d.stroke();
+        });
+
+        // Induced Current Arrows along edges
+        if (Math.abs(curr) > 0.08) {
+            const sign = Math.sign(curr);
+            const scale = Math.min(0.42, 0.18 + 0.04 * Math.abs(curr));
+            edges.forEach(ed => {
+                const mid = [(ed.s[0]+ed.e[0])/2, (ed.s[1]+ed.e[1])/2, (ed.s[2]+ed.e[2])/2];
+                const dx = (ed.e[0]-ed.s[0]) * scale * sign;
+                const dy = (ed.e[1]-ed.s[1]) * scale * sign;
+                const dz = (ed.e[2]-ed.s[2]) * scale * sign;
+                drawArrow3D([mid[0]-dx/2, mid[1]-dy/2, mid[2]-dz/2],
+                            [mid[0]+dx/2, mid[1]+dy/2, mid[2]+dz/2], "#d90429", 2.8, 9);
+            });
+        }
+
+        // S Pole (Right, x = +2.1)
+        const sPole = [[2.1, -1.5, -1.3], [2.1, 1.5, -1.3], [2.1, 1.5, 1.3], [2.1, -1.5, 1.3]];
+        drawPoly3D(sPole, `rgba(40, 90, 230, ${0.18 + 0.08*B})`, "rgba(30, 70, 200, 0.6)", 1.5);
+        const sTxt = project(2.1, 0, 1.5);
+        ctx3d.fillStyle = "#1845c4"; ctx3d.font = "bold 15px Arial";
+        ctx3d.fillText("S Pole", sTxt.px - 22, sTxt.py);
+    }
+
+    function render2DPlot(ctx, canvas, title, yLabel, yMax, color, isFlux) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const padL = 52, padR = 20, padT = 32, padB = 30;
+        const pw = canvas.width - padL - padR;
+        const ph = canvas.height - padT - padB;
+        const midY = padT + ph / 2;
+
+        // Title & Axes
+        ctx.fillStyle = "#222"; ctx.font = "bold 13px Arial";
+        ctx.fillText(title, padL, 20);
+        ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1;
+        ctx.strokeRect(padL, padT, pw, ph);
+
+        // Zero Line
+        ctx.strokeStyle = "#666"; ctx.beginPath();
+        ctx.moveTo(padL, midY); ctx.lineTo(padL + pw, midY); ctx.stroke();
+
+        // Y-axis Labels
+        ctx.fillStyle = "#444"; ctx.font = "11px Arial";
+        ctx.fillText(`+${yMax.toFixed(1)}`, 12, padT + 8);
+        ctx.fillText("0.0", 22, midY + 4);
+        ctx.fillText(`-${yMax.toFixed(1)}`, 12, padT + ph);
+
+        const tMin = Math.max(0, t - windowT);
+
+        // Faint Reference Curve for current B, w
+        ctx.strokeStyle = isFlux ? "rgba(30, 80, 220, 0.22)" : "rgba(217, 4, 41, 0.22)";
+        ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        for (let i = 0; i <= 150; i++) {
+            const tr = tMin + (i / 150) * windowT;
+            const thr = theta + w * (tr - t);
+            const val = isFlux ? B * Math.cos(thr) : B * w * Math.sin(thr);
+            const px = padL + ((tr - tMin) / windowT) * pw;
+            const py = midY - (val / yMax) * (ph / 2);
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke(); ctx.setLineDash([]);
+
+        // Real-time Recorded Curve
+        if (hist.length > 1) {
+            ctx.strokeStyle = color; ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            hist.forEach((pt, idx) => {
+                const px = padL + ((pt.t - tMin) / windowT) * pw;
+                const val = isFlux ? pt.flux : pt.curr;
+                const py = midY - (val / yMax) * (ph / 2);
+                if (idx === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            });
+            ctx.stroke();
+
+            // Current Point Marker
+            const last = hist[hist.length - 1];
+            const cx = padL + ((last.t - tMin) / windowT) * pw;
+            const cy = midY - ((isFlux ? last.flux : last.curr) / yMax) * (ph / 2);
+            ctx.fillStyle = color;
+            ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2 * Math.PI); ctx.fill();
+        }
+    }
+
+    function animate() {
+        if (!paused) {
+            t += dt;
+            theta += w * dt;
+            const flux = B * Math.cos(theta);
+            const curr = B * w * Math.sin(theta);
+            hist.push({ t, flux, curr });
+            while (hist.length > 2 && hist[hist.length - 1].t - hist[0].t > windowT) {
+                hist.shift();
+            }
+        }
+        const curFlux = B * Math.cos(theta);
+        const curCurr = B * w * Math.sin(theta);
+        const deg = Math.round((theta * 180 / Math.PI) % 360);
+
+        statusBox.textContent = `t: ${t.toFixed(1)}s | θ: ${deg}° | Φ: ${(curFlux>=0?'+':'')+curFlux.toFixed(2)} | I: ${(curCurr>=0?'+':'')+curCurr.toFixed(2)}`;
+
+        render3D(curFlux, curCurr);
+        render2DPlot(ctxFlux, cFlux, "Magnetic Flux: Φ(t) = BA cos(θ)", "Φ", 3.2, "#1d4ed8", true);
+        render2DPlot(ctxCurr, cCurr, "Induced Current: I(t) = -dΦ/dt = BAω sin(θ)", "I", 9.2, "#d90429", false);
+
+        requestAnimationFrame(animate);
+    }
+
+    hist.push({ t: 0, flux: B, curr: 0 });
+    animate();
+})();
+</script>
+
+</body>
+</html>
