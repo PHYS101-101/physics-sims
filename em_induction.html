@@ -3,35 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Electromagnetic Induction 3D Simulation</title>
+    <title>Electromagnetic Induction: 3D & 2D Cross-Section Simulation</title>
+    <!-- KaTeX Library for Mathematical Formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
     <style>
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #eef1f5;
             margin: 0;
-            padding: 25px;
+            padding: 20px;
             display: flex;
             justify-content: center;
         }
         .container {
             background: #f8f9fa;
-            padding: 20px 25px;
+            padding: 20px 24px;
             border-radius: 12px;
             border: 1px solid #d0d7de;
-            max-width: 1120px;
+            max-width: 1160px;
             width: 100%;
             box-shadow: 0 4px 15px rgba(0,0,0,0.08);
         }
         h2 {
             margin-top: 0;
-            margin-bottom: 15px;
+            margin-bottom: 6px;
             text-align: center;
             color: #1f2328;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #57606a;
+            margin-bottom: 16px;
         }
         .controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 22px;
+            gap: 20px;
             align-items: center;
             justify-content: center;
             background: #ffffff;
@@ -45,7 +56,7 @@
             font-size: 14px;
         }
         .slider-group input[type="range"] {
-            width: 190px;
+            width: 180px;
             cursor: pointer;
             margin-top: 5px;
         }
@@ -75,7 +86,7 @@
             color: #c01c28;
         }
         #statusBox {
-            font-size: 13.5px;
+            font-size: 13px;
             font-family: Consolas, monospace;
             font-weight: bold;
             background: #fffbea;
@@ -84,13 +95,19 @@
             border: 1px solid #e5d890;
             color: #333;
         }
-        .canvas-row {
-            display: flex;
-            gap: 14px;
-            flex-wrap: wrap;
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 560px 530px;
+            gap: 16px;
             justify-content: center;
         }
-        .canvas-col {
+        @media (max-width: 1140px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                justify-items: center;
+            }
+        }
+        .col-panel {
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -99,18 +116,19 @@
             background: #ffffff;
             border: 1px solid #ccc;
             border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
         #canvas3D {
             cursor: grab;
         }
         .hint {
             position: absolute;
-            bottom: 10px;
-            left: 12px;
-            font-size: 11.5px;
+            bottom: 8px;
+            left: 10px;
+            font-size: 11px;
             color: #555;
             pointer-events: none;
-            background: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.85);
             padding: 2px 6px;
             border-radius: 4px;
         }
@@ -119,16 +137,19 @@
 <body>
 
 <div class="container">
-    <h2>Electromagnetic Induction: Real-Time 3D Simulation</h2>
+    <h2>Electromagnetic Induction: 3D Coil & 2D Cross-Section Simulation</h2>
+    <div class="subtitle">
+        Faraday's Law: $\\Phi(t) = BA\\cos(\\omega t)$ &nbsp;|&nbsp; Induced EMF & Current: $I(t) \\propto -\\frac{d\\Phi}{dt} = BA\\omega\\sin(\\omega t)$
+    </div>
     
     <!-- Controls -->
     <div class="controls">
         <div class="slider-group">
-            <label style="color: #1a5fb4;">Magnetic Field (<i>B</i>): <span id="valB">1.0</span></label><br>
+            <label style="color: #1a5fb4;">Magnetic Field ($B$): <span id="valB">1.0</span></label><br>
             <input type="range" id="sliderB" min="0.2" max="3.0" step="0.1" value="1.0">
         </div>
         <div class="slider-group">
-            <label style="color: #c01c28;">Angular Velocity (<i>&omega;</i>): <span id="valW">1.0</span> rad/s</label><br>
+            <label style="color: #c01c28;">Angular Velocity ($\\omega$): <span id="valW">1.0</span> rad/s</label><br>
             <input type="range" id="sliderW" min="0.2" max="3.0" step="0.1" value="1.0">
         </div>
         <div class="btn-group">
@@ -136,21 +157,32 @@
             <button id="btnReset">↺ Reset</button>
         </div>
         <div id="statusBox">
-            θ: 0° | Φ: +1.00 | I: +0.00
+            θ: 0° | Φ: +1.00 | I: +0.00 | Lines: 0/11
         </div>
     </div>
 
-    <!-- Canvases -->
-    <div class="canvas-row">
-        <div style="position: relative;">
-            <canvas id="canvas3D" width="550" height="480"></canvas>
-            <div class="hint">
-                🖱️ Drag on 3D view to rotate camera | Orange/Cyan edges: Coil | Red arrows: Induced Current (I)
+    <!-- Main Simulation & Plots Grid -->
+    <div class="dashboard-grid">
+        <!-- Left Column: 3D View + 2D Cross-Section View -->
+        <div class="col-panel">
+            <div style="position: relative;">
+                <canvas id="canvas3D" width="560" height="310"></canvas>
+                <div class="hint">
+                    🖱️ Drag to rotate 3D view | Red arrows: Induced Current ($I$) | Green: Normal ($\\mathbf{n}$)
+                </div>
+            </div>
+            <div style="position: relative;">
+                <canvas id="canvasCross" width="560" height="230"></canvas>
+                <div class="hint">
+                    🔍 2D Cross-Section ($x$-$z$ plane): Cyan solid lines = B-field lines passing through coil ($\odot$ Out, $\otimes$ In)
+                </div>
             </div>
         </div>
-        <div class="canvas-col">
-            <canvas id="canvasFlux" width="510" height="234"></canvas>
-            <canvas id="canvasCurr" width="510" height="234"></canvas>
+
+        <!-- Right Column: Real-Time Time-Series Graphs -->
+        <div class="col-panel">
+            <canvas id="canvasFlux" width="530" height="270"></canvas>
+            <canvas id="canvasCurr" width="530" height="270"></canvas>
         </div>
     </div>
 </div>
@@ -159,18 +191,20 @@
 (function() {
     const c3d = document.getElementById('canvas3D');
     const ctx3d = c3d.getContext('2d');
+    const cCross = document.getElementById('canvasCross');
+    const ctxCross = cCross.getContext('2d');
     const cFlux = document.getElementById('canvasFlux');
     const ctxFlux = cFlux.getContext('2d');
     const cCurr = document.getElementById('canvasCurr');
     const ctxCurr = cCurr.getContext('2d');
 
-    let B = 3.0, w = 1.0, t = 0.0, theta = 0.0;
+    let B = 1.0, w = 1.0, t = 0.0, theta = 0.0;
     let paused = false;
     const dt = 0.025, windowT = 10.0;
     let hist = [];
 
     // 3D Camera Angles (Interactive Drag)
-    let camAzim = -0.9, camElev = 0.42;
+    let camAzim = -0.9, camElev = 0.40;
     let isDragging = false, lastX = 0, lastY = 0;
 
     c3d.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; c3d.style.cursor = 'grabbing'; });
@@ -199,7 +233,7 @@
         vB.textContent = "1.0"; vW.textContent = "1.0";
     };
 
-    // 3D to 2D Projection
+    // --- 1. 3D View Helper & Renderer ---
     function project(x, y, z) {
         const cosA = Math.cos(camAzim), sinA = Math.sin(camAzim);
         const cosE = Math.cos(camElev), sinE = Math.sin(camElev);
@@ -207,11 +241,11 @@
         const y1 = x * sinA + y * cosA;
         const z2 = z * cosE - y1 * sinE;
         const depth = z * sinE + y1 * cosE;
-        const scale = 95 * (6.5 / (6.5 + depth * 0.35));
-        return { px: c3d.width / 2 + x1 * scale, py: c3d.height / 2 - z2 * scale, depth: depth };
+        const scale = 68 * (6.5 / (6.5 + depth * 0.35));
+        return { px: c3d.width / 2 + x1 * scale, py: c3d.height / 2 + 8 - z2 * scale, depth: depth };
     }
 
-    function drawArrow3D(p1, p2, color, lw=2, headSize=7) {
+    function drawArrow3D(p1, p2, color, lw=2, headSize=6) {
         const a = project(p1[0], p1[1], p1[2]);
         const b = project(p2[0], p2[1], p2[2]);
         ctx3d.strokeStyle = color; ctx3d.fillStyle = color; ctx3d.lineWidth = lw;
@@ -237,29 +271,29 @@
 
     function render3D(flux, curr) {
         ctx3d.clearRect(0, 0, c3d.width, c3d.height);
-        ctx3d.font = "bold 14px Arial";
+        ctx3d.font = "bold 13px Arial";
         ctx3d.fillStyle = "#222";
-        ctx3d.fillText("3D Rotating Coil in Uniform B-Field (N → S)", 15, 25);
+        ctx3d.fillText("1. 3D Perspective View: Rotating Coil in Uniform B-Field", 14, 22);
 
         // N Pole (Left, x = -2.1)
         const nPole = [[-2.1, -1.5, -1.3], [-2.1, 1.5, -1.3], [-2.1, 1.5, 1.3], [-2.1, -1.5, 1.3]];
         drawPoly3D(nPole, `rgba(230, 50, 50, ${0.18 + 0.08*B})`, "rgba(200, 30, 30, 0.6)", 1.5);
         const nTxt = project(-2.1, 0, 1.5);
-        ctx3d.fillStyle = "#d01010"; ctx3d.font = "bold 15px Arial";
-        ctx3d.fillText("N Pole", nTxt.px - 22, nTxt.py);
+        ctx3d.fillStyle = "#d01010"; ctx3d.font = "bold 13px Arial";
+        ctx3d.fillText("N Pole", nTxt.px - 20, nTxt.py);
 
-        // Uniform B-Field Lines (Left N -> Right S)
+        // Uniform B-Field Lines
         const bAlpha = Math.min(0.8, 0.2 + 0.18 * B);
-        const bLw = 0.8 + 0.5 * B;
+        const bLw = 0.8 + 0.45 * B;
         for (let y of [-1.0, 0, 1.0]) {
             for (let z of [-0.8, 0, 0.8]) {
-                drawArrow3D([-1.9, y, z], [1.9, y, z], `rgba(0, 130, 130, ${bAlpha})`, bLw, 6);
+                drawArrow3D([-1.9, y, z], [1.9, y, z], `rgba(0, 130, 130, ${bAlpha})`, bLw, 5);
             }
         }
 
         // Rotation Axis (y-axis)
         const ax1 = project(0, -2.0, 0), ax2 = project(0, 2.0, 0);
-        ctx3d.strokeStyle = "#888"; ctx3d.setLineDash([5, 5]); ctx3d.lineWidth = 1.2;
+        ctx3d.strokeStyle = "#888"; ctx3d.setLineDash([4, 4]); ctx3d.lineWidth = 1.2;
         ctx3d.beginPath(); ctx3d.moveTo(ax1.px, ax1.py); ctx3d.lineTo(ax2.px, ax2.py); ctx3d.stroke();
         ctx3d.setLineDash([]);
 
@@ -273,17 +307,17 @@
 
         // Normal Vector n
         const nx = 1.0 * Math.cos(theta), nz = 1.0 * Math.sin(theta);
-        drawArrow3D([0, 0, 0], [nx, 0, nz], "#1b8a2f", 2.5, 8);
-        const nVecTxt = project(nx * 1.2, 0, nz * 1.2);
+        drawArrow3D([0, 0, 0], [nx, 0, nz], "#1b8a2f", 2.2, 7);
+        const nVecTxt = project(nx * 1.22, 0, nz * 1.22);
         ctx3d.fillStyle = "#1b8a2f"; ctx3d.font = "bold 12px Arial";
         ctx3d.fillText("n", nVecTxt.px, nVecTxt.py);
 
         // Coil Edges
-        const wireLw = Math.min(7.5, 2.5 + 0.7 * Math.abs(curr));
+        const wireLw = Math.min(7.0, 2.2 + 0.65 * Math.abs(curr));
         const edges = [
-            {s: P1, e: P2, col: "#e67700"},
+            {s: P1, e: P2, col: "#e67700"}, // Side 1 (Orange)
             {s: P2, e: P3, col: "#222222"},
-            {s: P3, e: P4, col: "#0b7285"},
+            {s: P3, e: P4, col: "#0b7285"}, // Side 2 (Cyan)
             {s: P4, e: P1, col: "#222222"}
         ];
         edges.forEach(ed => {
@@ -293,7 +327,7 @@
             ctx3d.beginPath(); ctx3d.moveTo(pA.px, pA.py); ctx3d.lineTo(pB.px, pB.py); ctx3d.stroke();
         });
 
-        // Induced Current Arrows along edges
+        // Induced Current Arrows
         if (Math.abs(curr) > 0.08) {
             const sign = Math.sign(curr);
             const scale = Math.min(0.42, 0.18 + 0.04 * Math.abs(curr));
@@ -303,7 +337,7 @@
                 const dy = (ed.e[1]-ed.s[1]) * scale * sign;
                 const dz = (ed.e[2]-ed.s[2]) * scale * sign;
                 drawArrow3D([mid[0]-dx/2, mid[1]-dy/2, mid[2]-dz/2],
-                            [mid[0]+dx/2, mid[1]+dy/2, mid[2]+dz/2], "#d90429", 2.8, 9);
+                            [mid[0]+dx/2, mid[1]+dy/2, mid[2]+dz/2], "#d90429", 2.5, 8);
             });
         }
 
@@ -311,20 +345,197 @@
         const sPole = [[2.1, -1.5, -1.3], [2.1, 1.5, -1.3], [2.1, 1.5, 1.3], [2.1, -1.5, 1.3]];
         drawPoly3D(sPole, `rgba(40, 90, 230, ${0.18 + 0.08*B})`, "rgba(30, 70, 200, 0.6)", 1.5);
         const sTxt = project(2.1, 0, 1.5);
-        ctx3d.fillStyle = "#1845c4"; ctx3d.font = "bold 15px Arial";
-        ctx3d.fillText("S Pole", sTxt.px - 22, sTxt.py);
+        ctx3d.fillStyle = "#1845c4"; ctx3d.font = "bold 13px Arial";
+        ctx3d.fillText("S Pole", sTxt.px - 20, sTxt.py);
     }
 
+    // --- 2. 2D Cross-Section View Renderer (x-z plane looking along y-axis) ---
+    function renderCrossSection(flux, curr) {
+        const w = cCross.width, h = cCross.height;
+        ctxCross.clearRect(0, 0, w, h);
+
+        const cx = w / 2 - 25, cy = h / 2 + 12;
+        const R = 74; // Coil half-width in pixels
+
+        // Title
+        ctxCross.fillStyle = "#222"; ctxCross.font = "bold 13px Arial";
+        ctxCross.fillText("2. 2D Cross-Section View (x-z Plane): Magnetic Flux & Effective Area", 14, 20);
+
+        // Left N Pole & Right S Pole blocks
+        ctxCross.fillStyle = `rgba(230, 50, 50, ${0.22 + 0.1*B})`;
+        ctxCross.strokeStyle = "#c92a2a"; ctxCross.lineWidth = 1.5;
+        ctxCross.fillRect(16, 34, 28, h - 58); ctxCross.strokeRect(16, 34, 28, h - 58);
+        ctxCross.fillStyle = "#c92a2a"; ctxCross.font = "bold 15px Arial";
+        ctxCross.fillText("N", 24, cy + 5);
+
+        const sX = w - 135;
+        ctxCross.fillStyle = `rgba(40, 90, 230, ${0.22 + 0.1*B})`;
+        ctxCross.strokeStyle = "#1864ab";
+        ctxCross.fillRect(sX, 34, 28, h - 58); ctxCross.strokeRect(sX, 34, 28, h - 58);
+        ctxCross.fillStyle = "#1864ab";
+        ctxCross.fillText("S", sX + 8, cy + 5);
+
+        // Coil endpoints in x-z plane:
+        // Edge 1 (Orange, P1->P2): x1 = -R*sin(theta), z1 = R*cos(theta)
+        // Edge 3 (Cyan, P3->P4):   x2 = +R*sin(theta), z2 = -R*cos(theta)
+        const x1 = cx - R * Math.sin(theta), y1 = cy - R * Math.cos(theta);
+        const x2 = cx + R * Math.sin(theta), y2 = cy + R * Math.cos(theta);
+        const zProjHalf = Math.abs(R * Math.cos(theta)); // Effective vertical projection half-height
+
+        // Number of B-field lines proportional to B (from 5 to 19 lines)
+        const numLines = Math.max(5, Math.round(3 + B * 5.3));
+        const spanZ = R * 1.05;
+        let capturedCount = 0;
+
+        for (let i = 0; i < numLines; i++) {
+            const frac = numLines === 1 ? 0 : (i / (numLines - 1)) * 2 - 1; // -1 to +1
+            const lineY = cy + frac * spanZ;
+            const isPassing = Math.abs(lineY - cy) <= zProjHalf + 1.5;
+            if (isPassing) capturedCount++;
+
+            ctxCross.beginPath();
+            ctxCross.moveTo(48, lineY);
+            ctxCross.lineTo(sX - 6, lineY);
+
+            if (isPassing) {
+                ctxCross.strokeStyle = "rgba(11, 114, 133, 0.85)";
+                ctxCross.lineWidth = 2.2;
+                ctxCross.setLineDash([]);
+            } else {
+                ctxCross.strokeStyle = "rgba(140, 160, 170, 0.38)";
+                ctxCross.lineWidth = 1.2;
+                ctxCross.setLineDash([4, 4]);
+            }
+            ctxCross.stroke();
+            ctxCross.setLineDash([]);
+
+            // Arrowhead near S pole
+            const ahX = sX - 6;
+            ctxCross.fillStyle = isPassing ? "rgba(11, 114, 133, 0.9)" : "rgba(140, 160, 170, 0.4)";
+            ctxCross.beginPath();
+            ctxCross.moveTo(ahX, lineY);
+            ctxCross.lineTo(ahX - 6, lineY - 3.5);
+            ctxCross.lineTo(ahX - 6, lineY + 3.5);
+            ctxCross.closePath();
+            ctxCross.fill();
+        }
+
+        // Shaded Effective Capture Zone between the two coil wires
+        const topY = cy - zProjHalf, botY = cy + zProjHalf;
+        ctxCross.fillStyle = Math.cos(theta) >= 0 ? "rgba(43, 138, 62, 0.10)" : "rgba(1ae, 62, 201, 0.10)";
+        ctxCross.fillRect(Math.min(x1, x2), topY, Math.abs(x2 - x1), zProjHalf * 2);
+
+        // Effective Projection Height Bar (A_perp = A |cos θ|) on the right side before S-Pole
+        const projX = sX - 38;
+        ctxCross.strokeStyle = "#888"; ctxCross.lineWidth = 1; ctxCross.setLineDash([3, 3]);
+        ctxCross.beginPath();
+        ctxCross.moveTo(x1, y1); ctxCross.lineTo(projX, y1);
+        ctxCross.moveTo(x2, y2); ctxCross.lineTo(projX, y2);
+        ctxCross.stroke(); ctxCross.setLineDash([]);
+
+        // Vertical Bracket for Effective Area
+        const barCol = Math.cos(theta) >= 0 ? "#2b8a3e" : "#ae3ec9";
+        ctxCross.strokeStyle = barCol; ctxCross.lineWidth = 4;
+        ctxCross.beginPath();
+        ctxCross.moveTo(projX, topY); ctxCross.lineTo(projX, botY);
+        ctxCross.stroke();
+        // Top & Bottom caps
+        ctxCross.lineWidth = 2;
+        ctxCross.beginPath();
+        ctxCross.moveTo(projX - 4, topY); ctxCross.lineTo(projX + 4, topY);
+        ctxCross.moveTo(projX - 4, botY); ctxCross.lineTo(projX + 4, botY);
+        ctxCross.stroke();
+
+        // Coil Cross-Section Segment (Gold-highlighted bar connecting the two wires)
+        ctxCross.strokeStyle = "#f59f00"; ctxCross.lineWidth = 7;
+        ctxCross.beginPath(); ctxCross.moveTo(x1, y1); ctxCross.lineTo(x2, y2); ctxCross.stroke();
+        ctxCross.strokeStyle = "#222"; ctxCross.lineWidth = 2;
+        ctxCross.beginPath(); ctxCross.moveTo(x1, y1); ctxCross.lineTo(x2, y2); ctxCross.stroke();
+
+        // Normal Vector n in 2D Cross-Section
+        const nx2d = cx + 45 * Math.cos(theta);
+        const ny2d = cy - 45 * Math.sin(theta);
+        ctxCross.strokeStyle = "#1b8a2f"; ctxCross.fillStyle = "#1b8a2f"; ctxCross.lineWidth = 2.5;
+        ctxCross.beginPath(); ctxCross.moveTo(cx, cy); ctxCross.lineTo(nx2d, ny2d); ctxCross.stroke();
+        const nAng = Math.atan2(ny2d - cy, nx2d - cx);
+        ctxCross.beginPath();
+        ctxCross.moveTo(nx2d, ny2d);
+        ctxCross.lineTo(nx2d - 7 * Math.cos(nAng - 0.4), ny2d - 7 * Math.sin(nAng - 0.4));
+        ctxCross.lineTo(nx2d - 7 * Math.cos(nAng + 0.4), ny2d - 7 * Math.sin(nAng + 0.4));
+        ctxCross.closePath(); ctxCross.fill();
+        ctxCross.font = "bold 12px Arial";
+        ctxCross.fillText("n", nx2d + 8 * Math.cos(nAng) - 4, ny2d + 8 * Math.sin(nAng) + 4);
+
+        // Draw Wire Cross-Section Circles with Current Symbols (⊙ Out of page / ⊗ Into page)
+        function drawWireCrossSection(wx, wy, borderCol, isIntoPage, hasCurr) {
+            const rad = 10;
+            ctxCross.fillStyle = "#ffffff";
+            ctxCross.strokeStyle = borderCol;
+            ctxCross.lineWidth = 3;
+            ctxCross.beginPath(); ctxCross.arc(wx, wy, rad, 0, 2 * Math.PI);
+            ctxCross.fill(); ctxCross.stroke();
+
+            if (!hasCurr) return;
+            ctxCross.strokeStyle = "#d90429"; ctxCross.fillStyle = "#d90429"; ctxCross.lineWidth = 2.2;
+            if (isIntoPage) {
+                // ⊗ Cross (Into page, +y direction)
+                const d = rad * 0.48;
+                ctxCross.beginPath();
+                ctxCross.moveTo(wx - d, wy - d); ctxCross.lineTo(wx + d, wy + d);
+                ctxCross.moveTo(wx + d, wy - d); ctxCross.lineTo(wx - d, wy + d);
+                ctxCross.stroke();
+            } else {
+                // ⊙ Dot (Out of page, -y direction)
+                ctxCross.beginPath();
+                ctxCross.arc(wx, wy, 3.2, 0, 2 * Math.PI);
+                ctxCross.fill();
+            }
+        }
+
+        const hasCurrent = Math.abs(curr) > 0.08;
+        // When curr > 0, P1->P2 flows in +y (into page ⊗), P3->P4 flows in -y (out of page ⊙)
+        drawWireCrossSection(x1, y1, "#e67700", curr > 0, hasCurrent);
+        drawWireCrossSection(x2, y2, "#0b7285", curr < 0, hasCurrent);
+
+        // Right-side Info Readout Box inside 2D Cross-Section Canvas
+        const infoX = w - 100;
+        ctxCross.fillStyle = "#222"; ctxCross.font = "bold 11.5px Arial";
+        ctxCross.fillText("Effective Area", infoX, 48);
+        ctxCross.fillStyle = barCol; ctxCross.font = "bold 13px Consolas, monospace";
+        ctxCross.fillText(`${Math.round(Math.abs(Math.cos(theta))*100)}%`, infoX, 65);
+
+        ctxCross.fillStyle = "#222"; ctxCross.font = "bold 11.5px Arial";
+        ctxCross.fillText("Captured Lines", infoX, 95);
+        ctxCross.fillStyle = "#0b7285"; ctxCross.font = "bold 13px Consolas, monospace";
+        ctxCross.fillText(`${capturedCount} / ${numLines}`, infoX, 112);
+
+        ctxCross.fillStyle = "#222"; ctxCross.font = "bold 11.5px Arial";
+        ctxCross.fillText("Wire Current", infoX, 142);
+        ctxCross.fillStyle = "#d90429"; ctxCross.font = "11.5px Arial";
+        if (!hasCurrent) {
+            ctxCross.fillText("I ≈ 0", infoX, 158);
+        } else if (curr > 0) {
+            ctxCross.fillText("Orange: ⊗ In", infoX, 158);
+            ctxCross.fillText("Cyan:   ⊙ Out", infoX, 174);
+        } else {
+            ctxCross.fillText("Orange: ⊙ Out", infoX, 158);
+            ctxCross.fillText("Cyan:   ⊗ In", infoX, 174);
+        }
+
+        return { capturedCount, numLines };
+    }
+
+    // --- 3. 2D Real-Time Waveform Renderer ---
     function render2DPlot(ctx, canvas, title, yLabel, yMax, color, isFlux) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const padL = 52, padR = 20, padT = 32, padB = 30;
+        const padL = 52, padR = 20, padT = 34, padB = 32;
         const pw = canvas.width - padL - padR;
         const ph = canvas.height - padT - padB;
         const midY = padT + ph / 2;
 
         // Title & Axes
         ctx.fillStyle = "#222"; ctx.font = "bold 13px Arial";
-        ctx.fillText(title, padL, 20);
+        ctx.fillText(title, padL, 21);
         ctx.strokeStyle = "#ccc"; ctx.lineWidth = 1;
         ctx.strokeRect(padL, padT, pw, ph);
 
@@ -337,10 +548,11 @@
         ctx.fillText(`+${yMax.toFixed(1)}`, 12, padT + 8);
         ctx.fillText("0.0", 22, midY + 4);
         ctx.fillText(`-${yMax.toFixed(1)}`, 12, padT + ph);
+        ctx.fillText("Time t (s)", padL + pw / 2 - 25, canvas.height - 8);
 
         const tMin = Math.max(0, t - windowT);
 
-        // Faint Reference Curve for current B, w
+        // Faint Reference Curve
         ctx.strokeStyle = isFlux ? "rgba(30, 80, 220, 0.22)" : "rgba(217, 4, 41, 0.22)";
         ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -390,11 +602,12 @@
         const curCurr = B * w * Math.sin(theta);
         const deg = Math.round((theta * 180 / Math.PI) % 360);
 
-        statusBox.textContent = `t: ${t.toFixed(1)}s | θ: ${deg}° | Φ: ${(curFlux>=0?'+':'')+curFlux.toFixed(2)} | I: ${(curCurr>=0?'+':'')+curCurr.toFixed(2)}`;
-
         render3D(curFlux, curCurr);
-        render2DPlot(ctxFlux, cFlux, "Magnetic Flux: Φ(t) = BA cos(θ)", "Φ", 3.2, "#1d4ed8", true);
-        render2DPlot(ctxCurr, cCurr, "Induced Current: I(t) = -dΦ/dt = BAω sin(θ)", "I", 9.2, "#d90429", false);
+        const crossStats = renderCrossSection(curFlux, curCurr);
+        render2DPlot(ctxFlux, cFlux, "3. Magnetic Flux: Φ(t) = BA cos(θ)", "Φ", 3.2, "#1d4ed8", true);
+        render2DPlot(ctxCurr, cCurr, "4. Induced Current: I(t) = -dΦ/dt = BAω sin(θ)", "I", 9.2, "#d90429", false);
+
+        statusBox.textContent = `t: ${t.toFixed(1)}s | θ: ${deg}° | Φ: ${(curFlux>=0?'+':'')+curFlux.toFixed(2)} | I: ${(curCurr>=0?'+':'')+curCurr.toFixed(2)} | Captured Lines: ${crossStats.capturedCount}/${crossStats.numLines}`;
 
         requestAnimationFrame(animate);
     }
