@@ -4,12 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Electromagnetic Induction: 3D & 2D Cross-Section Simulation</title>
+    
     <!-- KaTeX Library for Mathematical Formulas -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
-        onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === "function") {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+
     <style>
+        /* KaTeX 수식 줄바꿈 깨짐 방지 */
+        .katex {
+            font-size: 1.05em;
+            white-space: nowrap !important;
+        }
+        .katex-display {
+            margin: 0.5em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #eef1f5;
@@ -29,15 +54,21 @@
         }
         h2 {
             margin-top: 0;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
             text-align: center;
             color: #1f2328;
         }
         .subtitle {
             text-align: center;
-            font-size: 14px;
-            color: #57606a;
+            font-size: 14.5px;
+            color: #4a5568;
             margin-bottom: 16px;
+            line-height: 1.8;
+        }
+        .formula-chunk {
+            display: inline-block;
+            white-space: nowrap;
+            margin: 0 6px;
         }
         .controls {
             display: flex;
@@ -54,6 +85,7 @@
         .slider-group label {
             font-weight: bold;
             font-size: 14px;
+            white-space: nowrap;
         }
         .slider-group input[type="range"] {
             width: 180px;
@@ -94,6 +126,7 @@
             border-radius: 6px;
             border: 1px solid #e5d890;
             color: #333;
+            white-space: nowrap;
         }
         .dashboard-grid {
             display: grid;
@@ -128,18 +161,21 @@
             font-size: 11px;
             color: #555;
             pointer-events: none;
-            background: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.88);
             padding: 2px 6px;
             border-radius: 4px;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Electromagnetic Induction: 3D Coil & 2D Cross-Section Simulation</h2>
+    <h2>Electromagnetic Induction: 3D Coil &amp; 2D Cross-Section Simulation</h2>
     <div class="subtitle">
-        Faraday's Law: $\\Phi(t) = BA\\cos(\\omega t)$ &nbsp;|&nbsp; Induced EMF & Current: $I(t) \\propto -\\frac{d\\Phi}{dt} = BA\\omega\\sin(\\omega t)$
+        <span class="formula-chunk">Faraday's Law: $\Phi(t) = BA\cos(\omega t)$</span>
+        <span>|</span>
+        <span class="formula-chunk">Induced EMF &amp; Current: $I(t) \propto -\frac{d\Phi}{dt} = BA\omega\sin(\omega t)$</span>
     </div>
     
     <!-- Controls -->
@@ -149,7 +185,7 @@
             <input type="range" id="sliderB" min="0.2" max="3.0" step="0.1" value="1.0">
         </div>
         <div class="slider-group">
-            <label style="color: #c01c28;">Angular Velocity ($\\omega$): <span id="valW">1.0</span> rad/s</label><br>
+            <label style="color: #c01c28;">Angular Velocity ($\omega$): <span id="valW">1.0</span> rad/s</label><br>
             <input type="range" id="sliderW" min="0.2" max="3.0" step="0.1" value="1.0">
         </div>
         <div class="btn-group">
@@ -157,7 +193,7 @@
             <button id="btnReset">↺ Reset</button>
         </div>
         <div id="statusBox">
-            θ: 0° | Φ: +1.00 | I: +0.00 | Lines: 0/11
+            θ: 0° | Φ: +1.00 | I: +0.00 | Lines: 0/8
         </div>
     </div>
 
@@ -168,13 +204,13 @@
             <div style="position: relative;">
                 <canvas id="canvas3D" width="560" height="310"></canvas>
                 <div class="hint">
-                    🖱️ Drag to rotate 3D view | Red arrows: Induced Current ($I$) | Green: Normal ($\\mathbf{n}$)
+                    🖱️ Drag to rotate 3D view | Red arrows: Induced Current ($I$) | Green: Normal ($\mathbf{n}$)
                 </div>
             </div>
             <div style="position: relative;">
                 <canvas id="canvasCross" width="560" height="230"></canvas>
                 <div class="hint">
-                    🔍 2D Cross-Section ($x$-$z$ plane): Cyan solid lines = B-field lines passing through coil ($\odot$ Out, $\otimes$ In)
+                    🔍 2D Cross-Section ($x$-$z$ plane): Cyan solid lines = B-field passing through coil ($\odot$ Out, $\otimes$ In)
                 </div>
             </div>
         </div>
@@ -375,12 +411,10 @@
         ctxCross.fillStyle = "#1864ab";
         ctxCross.fillText("S", sX + 8, cy + 5);
 
-        // Coil endpoints in x-z plane:
-        // Edge 1 (Orange, P1->P2): x1 = -R*sin(theta), z1 = R*cos(theta)
-        // Edge 3 (Cyan, P3->P4):   x2 = +R*sin(theta), z2 = -R*cos(theta)
+        // Coil endpoints in x-z plane
         const x1 = cx - R * Math.sin(theta), y1 = cy - R * Math.cos(theta);
         const x2 = cx + R * Math.sin(theta), y2 = cy + R * Math.cos(theta);
-        const zProjHalf = Math.abs(R * Math.cos(theta)); // Effective vertical projection half-height
+        const zProjHalf = Math.abs(R * Math.cos(theta));
 
         // Number of B-field lines proportional to B (from 5 to 19 lines)
         const numLines = Math.max(5, Math.round(3 + B * 5.3));
@@ -388,7 +422,7 @@
         let capturedCount = 0;
 
         for (let i = 0; i < numLines; i++) {
-            const frac = numLines === 1 ? 0 : (i / (numLines - 1)) * 2 - 1; // -1 to +1
+            const frac = numLines === 1 ? 0 : (i / (numLines - 1)) * 2 - 1;
             const lineY = cy + frac * spanZ;
             const isPassing = Math.abs(lineY - cy) <= zProjHalf + 1.5;
             if (isPassing) capturedCount++;
@@ -422,10 +456,10 @@
 
         // Shaded Effective Capture Zone between the two coil wires
         const topY = cy - zProjHalf, botY = cy + zProjHalf;
-        ctxCross.fillStyle = Math.cos(theta) >= 0 ? "rgba(43, 138, 62, 0.10)" : "rgba(1ae, 62, 201, 0.10)";
+        ctxCross.fillStyle = Math.cos(theta) >= 0 ? "rgba(43, 138, 62, 0.10)" : "rgba(174, 62, 201, 0.10)";
         ctxCross.fillRect(Math.min(x1, x2), topY, Math.abs(x2 - x1), zProjHalf * 2);
 
-        // Effective Projection Height Bar (A_perp = A |cos θ|) on the right side before S-Pole
+        // Effective Projection Height Bar (A_perp = A |cos θ|)
         const projX = sX - 38;
         ctxCross.strokeStyle = "#888"; ctxCross.lineWidth = 1; ctxCross.setLineDash([3, 3]);
         ctxCross.beginPath();
@@ -439,14 +473,13 @@
         ctxCross.beginPath();
         ctxCross.moveTo(projX, topY); ctxCross.lineTo(projX, botY);
         ctxCross.stroke();
-        // Top & Bottom caps
         ctxCross.lineWidth = 2;
         ctxCross.beginPath();
         ctxCross.moveTo(projX - 4, topY); ctxCross.lineTo(projX + 4, topY);
         ctxCross.moveTo(projX - 4, botY); ctxCross.lineTo(projX + 4, botY);
         ctxCross.stroke();
 
-        // Coil Cross-Section Segment (Gold-highlighted bar connecting the two wires)
+        // Coil Cross-Section Segment
         ctxCross.strokeStyle = "#f59f00"; ctxCross.lineWidth = 7;
         ctxCross.beginPath(); ctxCross.moveTo(x1, y1); ctxCross.lineTo(x2, y2); ctxCross.stroke();
         ctxCross.strokeStyle = "#222"; ctxCross.lineWidth = 2;
@@ -466,7 +499,7 @@
         ctxCross.font = "bold 12px Arial";
         ctxCross.fillText("n", nx2d + 8 * Math.cos(nAng) - 4, ny2d + 8 * Math.sin(nAng) + 4);
 
-        // Draw Wire Cross-Section Circles with Current Symbols (⊙ Out of page / ⊗ Into page)
+        // Draw Wire Cross-Section Circles with Current Symbols (⊙ Out / ⊗ In)
         function drawWireCrossSection(wx, wy, borderCol, isIntoPage, hasCurr) {
             const rad = 10;
             ctxCross.fillStyle = "#ffffff";
@@ -478,14 +511,12 @@
             if (!hasCurr) return;
             ctxCross.strokeStyle = "#d90429"; ctxCross.fillStyle = "#d90429"; ctxCross.lineWidth = 2.2;
             if (isIntoPage) {
-                // ⊗ Cross (Into page, +y direction)
                 const d = rad * 0.48;
                 ctxCross.beginPath();
                 ctxCross.moveTo(wx - d, wy - d); ctxCross.lineTo(wx + d, wy + d);
                 ctxCross.moveTo(wx + d, wy - d); ctxCross.lineTo(wx - d, wy + d);
                 ctxCross.stroke();
             } else {
-                // ⊙ Dot (Out of page, -y direction)
                 ctxCross.beginPath();
                 ctxCross.arc(wx, wy, 3.2, 0, 2 * Math.PI);
                 ctxCross.fill();
@@ -493,7 +524,6 @@
         }
 
         const hasCurrent = Math.abs(curr) > 0.08;
-        // When curr > 0, P1->P2 flows in +y (into page ⊗), P3->P4 flows in -y (out of page ⊙)
         drawWireCrossSection(x1, y1, "#e67700", curr > 0, hasCurrent);
         drawWireCrossSection(x2, y2, "#0b7285", curr < 0, hasCurrent);
 
