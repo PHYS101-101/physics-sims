@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N-Body 중력 시뮬레이션</title>
+  <!-- KaTeX 포함 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+  <style>
+    :root {
+      --primary: rgb(27, 35, 181);
+      --primary-light: rgba(27, 35, 181, 0.1);
+      --bg: #ffffff;
+      --panel-bg: #f8f9fc;
+      --text: #1e293b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+    
+    /* 사이드바 컨트롤 패널 */
+    #sidebar {
+      width: 340px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    h1 { font-size: 1.25rem; color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
+    .section-title { font-size: 0.85rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .control-group { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    button:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    button.active, button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    button.primary:hover { opacity: 0.9; }
+
+    .slider-row { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+    .slider-header { display: flex; justify-content: space-between; }
+    input[type="range"] { accent-color: var(--primary); width: 100%; cursor: pointer; }
+    
+    .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; }
+    input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+    .stats-box { font-size: 0.8rem; line-height: 1.6; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .guide-box { font-size: 0.8rem; color: #475569; line-height: 1.5; background: var(--primary-light); border-left: 3px solid var(--primary); padding: 10px; border-radius: 4px; }
+
+    /* 메인 캔버스 영역 */
+    #canvas-container { flex: 1; position: relative; background: #0f172a; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    #hud {
+      position: absolute; top: 16px; left: 16px;
+      background: rgba(15, 23, 42, 0.75); color: #f8fafc;
+      padding: 10px 14px; border-radius: 8px; font-size: 0.85rem;
+      pointer-events: none; border: 1px solid rgba(255,255,255,0.15);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body>
+
+  <aside id="sidebar">
+    <h1>N-Body 중력 시뮬레이터</h1>
+
+    <div class="guide-box">
+      <strong>물체 추가 방법:</strong><br>
+      캔버스 위에서 마우스를 <strong>클릭 및 드래그</strong>하여 초기 속도 벡터 $\mathbf{v}_0$를 지정한 뒤 놓으면 새로운 천체가 생성됩니다.
+    </div>
+
+    <div>
+      <div class="section-title">1. 이체 및 삼체 프리셋</div>
+      <div class="control-group">
+        <div class="btn-grid">
+          <button onclick="loadPreset('figure8')">8자 특수해 (3체)</button>
+          <button onclick="loadPreset('lagrange')">라그랑주 정삼각형</button>
+          <button onclick="loadPreset('binary')">쌍성계 + 행성</button>
+          <button onclick="loadPreset('kepler')">태양-행성-위성</button>
+          <button onclick="loadPreset('broucke')">브루크-에농 해</button>
+          <button onclick="loadPreset('chaos')">혼돈 삼체 (Chaos)</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">2. 새로 추가할 천체 설정</div>
+      <div class="control-group">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>추가할 질량 ($m$)</span>
+            <strong id="massVal">1.0</strong>
+          </div>
+          <input type="range" id="newMass" min="0.05" max="5.0" step="0.05" value="1.0" oninput="document.getElementById('massVal').innerText = parseFloat(this.value).toFixed(2)">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">3. 시뮬레이션 제어</div>
+      <div class="control-group">
+        <div class="btn-grid">
+          <button id="playPauseBtn" class="primary" onclick="togglePlay()">일시정지</button>
+          <button onclick="clearBodies()">모두 지우기</button>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>시뮬레이션 속도 ($\Delta t$ 배율)</span>
+            <strong id="speedVal">1.0x</strong>
+          </div>
+          <input type="range" id="simSpeed" min="0.1" max="3.0" step="0.1" value="1.0" oninput="document.getElementById('speedVal').innerText = parseFloat(this.value).toFixed(1) + 'x'">
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>궤적 길이 (Trail)</span>
+            <strong id="trailVal">400</strong>
+          </div>
+          <input type="range" id="trailLength" min="0" max="1200" step="50" value="400" oninput="document.getElementById('trailVal').innerText = this.value">
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="comLock" checked>
+          <span>질량중심(CoM) 좌표계 고정</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="showVectors">
+          <span>속도 벡터($\mathbf{v}$) 표시</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="enableCollision">
+          <span>완전 비탄성 충돌 병합 활성화</span>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">4. 역학적 에너지 모니터링</div>
+      <div class="stats-box">
+        <div>천체 수 ($N$): <strong id="statN">0</strong></div>
+        <div>운동 에너지 ($T$): <span id="statK">0.000</span></div>
+        <div>퍼텐셜 에너지 ($U$): <span id="statU">0.000</span></div>
+        <div>총 역학적 에너지 ($E=T+U$): <strong id="statE">0.000</strong></div>
+      </div>
+    </div>
+  </aside>
+
+  <main id="canvas-container">
+    <div id="hud">프리셋: <span id="presetName">천시네르-몽고메리 8자 특수해</span></div>
+    <canvas id="simCanvas"></canvas>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
+    const SCALE = 180; // 물리 좌표 1단위당 픽셀 수
+    const G = 1.0;     // 정규화된 중력 상수
+    const SOFTENING = 0.015; // 특이점 방지용 소프트닝 파라미터
+
+    let bodies = [];
+    let isRunning = true;
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let dragCurr = { x: 0, y: 0 };
+
+    const PALETTE = ['#38bdf8', '#fb7185', '#facc15', '#4ade80', '#c084fc', '#fb923c'];
+
+    function resize() {
+      width = canvas.parentElement.clientWidth;
+      height = canvas.parentElement.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // 물리 좌표 <-> 화면 픽셀 변환
+    function toScreen(x, y) {
+      return { x: width / 2 + x * SCALE, y: height / 2 - y * SCALE };
+    }
+    function toPhysics(px, py) {
+      return { x: (px - width / 2) / SCALE, y: (height / 2 - py) / SCALE };
+    }
+
+    class Body {
+      constructor(x, y, vx, vy, m, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.ax = 0;
+        this.ay = 0;
+        this.m = m;
+        this.color = color || PALETTE[bodies.length % PALETTE.length];
+        this.trail = [];
+      }
+      get radius() {
+        return Math.max(4, Math.min(18, 6 * Math.cbrt(this.m)));
+      }
+    }
+
+    function computeAccelerations() {
+      for (let b of bodies) {
+        b.ax = 0;
+        b.ay = 0;
+      }
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const b1 = bodies[i];
+          const b2 = bodies[j];
+          const dx = b2.x - b1.x;
+          const dy = b2.y - b1.y;
+          const distSq = dx * dx + dy * dy + SOFTENING * SOFTENING;
+          const invDistCube = 1.0 / (distSq * Math.sqrt(distSq));
+          const f = G * invDistCube;
+
+          b1.ax += f * b2.m * dx;
+          b1.ay += f * b2.m * dy;
+          b2.ax -= f * b1.m * dx;
+          b2.ay -= f * b1.m * dy;
+        }
+      }
+    }
+
+    // Velocity Verlet 심플렉틱 적분
+    function stepVerlet(dt) {
+      for (let b of bodies) {
+        b.x += b.vx * dt + 0.5 * b.ax * dt * dt;
+        b.y += b.vy * dt + 0.5 * b.ay * dt * dt;
+      }
+      const oldAcc = bodies.map(b => ({ ax: b.ax, ay: b.ay }));
+      computeAccelerations();
+      for (let i = 0; i < bodies.length; i++) {
+        bodies[i].vx += 0.5 * (oldAcc[i].ax + bodies[i].ax) * dt;
+        bodies[i].vy += 0.5 * (oldAcc[i].ay + bodies[i].ay) * dt;
+      }
+
+      if (document.getElementById('enableCollision').checked) {
+        handleCollisions();
+      }
+    }
+
+    function handleCollisions() {
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const b1 = bodies[i];
+          const b2 = bodies[j];
+          const dx = b2.x - b1.x;
+          const dy = b2.y - b1.y;
+          const dist = Math.hypot(dx, dy);
+          const minDist = (b1.radius + b2.radius) / SCALE * 0.7;
+          if (dist < minDist) {
+            const totalM = b1.m + b2.m;
+            b1.x = (b1.x * b1.m + b2.x * b2.m) / totalM;
+            b1.y = (b1.y * b1.m + b2.y * b2.m) / totalM;
+            b1.vx = (b1.vx * b1.m + b2.vx * b2.m) / totalM;
+            b1.vy = (b1.vy * b1.m + b2.vy * b2.m) / totalM;
+            b1.m = totalM;
+            bodies.splice(j, 1);
+            j--;
+          }
+        }
+      }
+    }
+
+    function centerOfMassCorrection() {
+      if (bodies.length === 0) return;
+      let totalM = 0, cx = 0, cy = 0, cvx = 0, cvy = 0;
+      for (let b of bodies) {
+        totalM += b.m;
+        cx += b.x * b.m;
+        cy += b.y * b.m;
+        cvx += b.vx * b.m;
+        cvy += b.vy * b.m;
+      }
+      cx /= totalM; cy /= totalM; cvx /= totalM; cvy /= totalM;
+      for (let b of bodies) {
+        b.x -= cx;
+        b.y -= cy;
+        b.vx -= cvx;
+        b.vy -= cvy;
+      }
+    }
+
+    function updateStats() {
+      let K = 0, U = 0;
+      for (let i = 0; i < bodies.length; i++) {
+        const b1 = bodies[i];
+        K += 0.5 * b1.m * (b1.vx * b1.vx + b1.vy * b1.vy);
+        for (let j = i + 1; j < bodies.length; j++) {
+          const b2 = bodies[j];
+          const dist = Math.hypot(b2.x - b1.x, b2.y - b1.y + SOFTENING);
+          U -= (G * b1.m * b2.m) / dist;
+        }
+      }
+      document.getElementById('statN').innerText = bodies.length;
+      document.getElementById('statK').innerText = K.toFixed(3);
+      document.getElementById('statU').innerText = U.toFixed(3);
+      document.getElementById('statE').innerText = (K + U).toFixed(3);
+    }
+
+    function loadPreset(type) {
+      bodies = [];
+      const presetTitle = document.getElementById('presetName');
+      if (type === 'figure8') {
+        presetTitle.innerText = '천시네르-몽고메리 8자 특수해 (Figure-8)';
+        const x1 = 0.97000436, y1 = -0.24308753;
+        const vx3 = -0.93240737, vy3 = -0.86473146;
+        bodies.push(new Body(x1, y1, -vx3 / 2, -vy3 / 2, 1.0, '#38bdf8'));
+        bodies.push(new Body(-x1, -y1, -vx3 / 2, -vy3 / 2, 1.0, '#fb7185'));
+        bodies.push(new Body(0, 0, vx3, vy3, 1.0, '#facc15'));
+      } else if (type === 'lagrange') {
+        presetTitle.innerText = '라그랑주 정삼각형 주기해 (Lagrange Equilateral)';
+        const r = 1.0;
+        const v = Math.sqrt(G * 1.0 / (Math.sqrt(3) * r));
+        for (let k = 0; k < 3; k++) {
+          const theta = (2 * Math.PI * k) / 3;
+          const x = r * Math.cos(theta);
+          const y = r * Math.sin(theta);
+          const vx = -v * Math.sin(theta);
+          const vy = v * Math.cos(theta);
+          bodies.push(new Body(x, y, vx, vy, 1.0, PALETTE[k]));
+        }
+      } else if (type === 'binary') {
+        presetTitle.innerText = '쌍성계와 주위 행성 (Circumbinary Planet)';
+        bodies.push(new Body(-0.45, 0, 0, -0.65, 1.2, '#38bdf8'));
+        bodies.push(new Body(0.45, 0, 0, 0.65, 1.2, '#fb7185'));
+        bodies.push(new Body(1.6, 0, 0, 1.15, 0.05, '#4ade80'));
+      } else if (type === 'kepler') {
+        presetTitle.innerText = '항성 - 행성 - 위성 계층 궤도';
+        bodies.push(new Body(0, 0, 0, 0, 4.0, '#facc15'));
+        bodies.push(new Body(1.5, 0, 0, 1.63, 0.25, '#38bdf8'));
+        bodies.push(new Body(1.68, 0, 0, 1.63 + 0.95, 0.01, '#fb7185'));
+      } else if (type === 'broucke') {
+        presetTitle.innerText = '브루크-에농 삼체 주기해 (Broucke-Henon)';
+        bodies.push(new Body(-0.98, 0, 0, -0.75, 1.0, '#38bdf8'));
+        bodies.push(new Body(0.98, 0, 0, -0.75, 1.0, '#fb7185'));
+        bodies.push(new Body(0, 0, 0, 1.50, 1.0, '#facc15'));
+      } else if (type === 'chaos') {
+        presetTitle.innerText = '비대칭 혼돈 삼체 문제 (Chaotic 3-Body)';
+        bodies.push(new Body(-0.8, 0.4, 0.2, -0.3, 1.2, '#38bdf8'));
+        bodies.push(new Body(0.7, -0.3, -0.3, 0.4, 1.0, '#fb7185'));
+        bodies.push(new Body(0.1, -0.6, 0.1, -0.1, 0.8, '#facc15'));
+      }
+      centerOfMassCorrection();
+      computeAccelerations();
+    }
+
+    function clearBodies() {
+      bodies = [];
+      document.getElementById('presetName').innerText = '사용자 정의 궤도';
+    }
+
+    function togglePlay() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('playPauseBtn');
+      btn.innerText = isRunning ? '일시정지' : '재생';
+    }
+
+    // 마우스 드래그로 천체 추가 (Slingshot)
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      dragCurr = { ...dragStart };
+      isDragging = true;
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      dragCurr = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    });
+    window.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      const pos = toPhysics(dragStart.x, dragStart.y);
+      const vx = (dragCurr.x - dragStart.x) / (SCALE * 0.6);
+      const vy = (dragStart.y - dragCurr.y) / (SCALE * 0.6);
+      const m = parseFloat(document.getElementById('newMass').value);
+      bodies.push(new Body(pos.x, pos.y, vx, vy, m));
+      computeAccelerations();
+    });
+
+    function drawArrow(x1, y1, x2, y2, color) {
+      const headlen = 8;
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+      ctx.stroke();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const speedMult = parseFloat(document.getElementById('simSpeed').value);
+      const maxTrail = parseInt(document.getElementById('trailLength').value, 10);
+      const subSteps = 12;
+      const dt = (0.008 * speedMult) / subSteps;
+
+      if (isRunning && bodies.length > 0) {
+        for (let s = 0; s < subSteps; s++) {
+          stepVerlet(dt);
+        }
+        if (document.getElementById('comLock').checked) {
+          centerOfMassCorrection();
+        }
+        for (let b of bodies) {
+          b.trail.push({ x: b.x, y: b.y });
+          while (b.trail.length > maxTrail) b.trail.shift();
+        }
+      }
+
+      updateStats();
+
+      // 배경 및 그리드 렌더링
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      for (let gx = (width / 2) % (SCALE / 2); gx < width; gx += SCALE / 2) {
+        ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, height); ctx.stroke();
+      }
+      for (let gy = (height / 2) % (SCALE / 2); gy < height; gy += SCALE / 2) {
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(width, gy); ctx.stroke();
+      }
+
+      // 궤적 및 천체 렌더링
+      const showVec = document.getElementById('showVectors').checked;
+      for (let b of bodies) {
+        if (b.trail.length > 1) {
+          ctx.beginPath();
+          for (let i = 0; i < b.trail.length; i++) {
+            const p = toScreen(b.trail[i].x, b.trail[i].y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = b.color;
+          ctx.globalAlpha = 0.55;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+        }
+
+        const scr = toScreen(b.x, b.y);
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = b.color;
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        if (showVec) {
+          drawArrow(scr.x, scr.y, scr.x + b.vx * 35, scr.y - b.vy * 35, '#ffffff');
+        }
+      }
+
+      // 드래그 중 미리보기
+      if (isDragging) {
+        const m = parseFloat(document.getElementById('newMass').value);
+        const r = Math.max(4, Math.min(18, 6 * Math.cbrt(m)));
+        ctx.beginPath();
+        ctx.arc(dragStart.x, dragStart.y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        drawArrow(dragStart.x, dragStart.y, dragCurr.x, dragCurr.y, '#38bdf8');
+      }
+    }
+
+    loadPreset('figure8');
+    animate();
+  </script>
+</body>
+</html>
