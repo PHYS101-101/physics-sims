@@ -4,41 +4,235 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Interactive Physics Lab</title>
-    <!-- KaTeX 수식 렌더링 라이브러리 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
-        onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
+    
+    <!-- KaTeX Library for Mathematical Formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement === "function") {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false}
+                    ],
+                    throwOnError: false
+                });
+            }
+        });
+    </script>
+
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; padding: 40px 20px; color: #222; }
-        .wrap { max-width: 960px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 40px; }
-        h1 { margin-bottom: 8px; color: #1a365d; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
-        .card { background: #fff; border-radius: 12px; padding: 22px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between; }
-        .card h3 { margin-top: 0; color: #2b6cb0; }
-        .card p { font-size: 14px; color: #4a5568; line-height: 1.6; }
-        .btn { display: inline-block; text-align: center; background: #3182ce; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: bold; margin-top: 12px; }
-        .btn:hover { background: #2b6cb0; }
+        /* KaTeX 수식 줄바꿈 깨짐 원천 차단 */
+        .katex {
+            font-size: 1.02em;
+            white-space: nowrap !important;
+        }
+        .katex-display {
+            margin: 0.6em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #ffffff;
+            margin: 0;
+            padding: 50px 24px;
+            color: #1f2328;
+        }
+        .wrap {
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding-bottom: 28px;
+            border-bottom: 2px solid #eef2f6;
+        }
+        .header-badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #1b23b5;
+            font-size: 12.5px;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 32px;
+            color: #1b23b5;
+            letter-spacing: -0.5px;
+        }
+        header p {
+            margin: 0;
+            font-size: 16px;
+            color: #4a5568;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+            gap: 28px;
+        }
+        @media (max-width: 520px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 28px;
+            border: 1px solid #d8dee4;
+            box-shadow: 0 4px 16px rgba(27, 35, 181, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 24px rgba(27, 35, 181, 0.12);
+            border-color: #1b23b5;
+        }
+        .tag-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .tag {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: #f0f4ff;
+            color: #1b23b5;
+        }
+        .tag.sub {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .card h3 {
+            margin: 0 0 12px 0;
+            font-size: 21px;
+            color: #111827;
+        }
+        .card p {
+            font-size: 14.5px;
+            color: #4b5563;
+            line-height: 1.65;
+            margin: 0 0 16px 0;
+        }
+        .formula-box {
+            background: #f8fafc;
+            border-left: 4px solid #1b23b5;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+            font-size: 14px;
+            color: #1e293b;
+            overflow-x: auto;
+        }
+        .feature-list {
+            margin: 0 0 24px 0;
+            padding-left: 18px;
+            font-size: 13.5px;
+            color: #475569;
+            line-height: 1.7;
+        }
+        .btn {
+            display: block;
+            text-align: center;
+            background: #1b23b5;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 13px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14.5px;
+            transition: background 0.15s ease;
+        }
+        .btn:hover {
+            background: #141a8a;
+        }
+        footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 13px;
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body>
+
 <div class="wrap">
     <header>
+        <span class="header-badge">HTML5 &amp; WebGL Physics Archive</span>
         <h1>Interactive Physics Simulations</h1>
-        <p>웹 브라우저에서 실시간으로 조작하며 원리를 탐구하는 물리 시뮬레이션 아카이브</p>
+        <p>웹 브라우저에서 매개변수를 실시간으로 조작하며 물리 법칙을 직관적으로 탐구하는 디지털 실험실</p>
     </header>
 
     <div class="grid">
         <!-- 시뮬레이션 1: 전자기 유도 -->
         <div class="card">
             <div>
-                <h3>1. 전자기 유도 (Electromagnetic Induction)</h3>
-                <p>균일한 자기장 $B$ 속에서 각속도 $\omega$로 회전하는 사각형 코일의 자기선속 $\Phi(t) = BA\cos(\omega t)$와 유도 전류 $I(t) \propto -\frac{d\Phi}{dt}$의 위상차를 3D로 관찰합니다.</p>
+                <div class="tag-row">
+                    <span class="tag">전자기학 (Electromagnetism)</span>
+                    <span class="tag sub">3D &amp; 2D 단면 연동</span>
+                </div>
+                <h3>1. 전자기 유도와 교류 발전기 원리</h3>
+                <p>
+                    균일한 자기장($B$) 속에서 일정한 각속도($\omega$)로 회전하는 사각형 코일을 통해 패러데이 전자기 유도 법칙과 렌츠의 법칙을 시각적으로 확인합니다.
+                </p>
+                <div class="formula-box">
+                    $$\Phi(t) = BA\cos(\omega t), \quad I(t) = -\frac{1}{R}\frac{d\Phi}{dt} \propto BA\omega\sin(\omega t)$$
+                </div>
+                <ul class="feature-list">
+                    <li><b>3D 회전 뷰:</b> 마우스 드래그 시점 회전, 법선 벡터($\mathbf{n}$) 및 유도 전류 화살표 표시</li>
+                    <li><b>2D 단면 뷰:</b> 유효 투영 단면적($A\cos\theta$)과 코일을 통과하는 자기력선 개수 실시간 계산</li>
+                    <li><b>파형 그래프:</b> 자기선속($\Phi$)과 유도 전류($I$)의 $90^\circ$ 위상차 실시간 플로팅</li>
+                </ul>
             </div>
-            <a href="em_induction.html" class="btn">시뮬레이션 실행 →</a>
+            <a href="em_induction.html" class="btn">시뮬레이션 실행하기 →</a>
+        </div>
+
+        <!-- 시뮬레이션 2: 전기장 & 등전위선 샌드박스 -->
+        <div class="card">
+            <div>
+                <div class="tag-row">
+                    <span class="tag">정전기학 (Electrostatics)</span>
+                    <span class="tag sub">인터랙티브 샌드박스</span>
+                </div>
+                <h3>2. 전기장·등전위선 빌더 &amp; 입자 발사기</h3>
+                <p>
+                    공간에 양전하($+q$)와 음전하($-q$)를 자유롭게 배치·이동하며 중첩 원리에 의한 전기장($\mathbf{E}$)과 전위($V$) 분포를 실시간으로 설계하고 시험 전하를 발사합니다.
+                </p>
+                <div class="formula-box">
+                    $$\mathbf{E}(\mathbf{r}) = \sum_i \frac{k q_i}{|\mathbf{r} - \mathbf{r}_i|^3}(\mathbf{r} - \mathbf{r}_i), \quad V(\mathbf{r}) = \sum_i \frac{k q_i}{|\mathbf{r} - \mathbf{r}_i|}$$
+                </div>
+                <ul class="feature-list">
+                    <li><b>실시간 필드 렌더링:</b> 등전위선(Equipotential Contours, $V=0$ 강조), RK4 전기력선, $\mathbf{E}$ 벡터장</li>
+                    <li><b>클래식 프리셋:</b> 전기 쌍극자, 사중극자, 평행판 축전기, 비대칭 전하 배치 즉시 로드</li>
+                    <li><b>슬링샷 입자 발사:</b> 마우스로 당겨 쏜 시험 전하($+q_0$)의 쿨롱 힘 가속 및 산란 궤적 추적</li>
+                </ul>
+            </div>
+            <a href="electric_field_sandbox.html" class="btn">시뮬레이션 실행하기 →</a>
         </div>
     </div>
+
+    <footer>
+        Interactive Physics Simulation Lab &bull; Powered by HTML5 Canvas &amp; KaTeX
+    </footer>
 </div>
+
 </body>
 </html>
