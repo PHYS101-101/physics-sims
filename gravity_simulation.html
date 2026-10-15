@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>N-Body 중력 시뮬레이션</title>
   <!-- KaTeX 포함 -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
     onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});"></script>
   <style>
     :root {
@@ -21,7 +21,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
     body { background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
     
-    /* 사이드바 컨트롤 패널 */
     #sidebar {
       width: 340px;
       background: var(--panel-bg);
@@ -33,6 +32,8 @@
       overflow-y: auto;
     }
     h1 { font-size: 1.25rem; color: var(--primary); font-weight: 700; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
+    .back-link { font-size: 0.85rem; color: var(--primary); text-decoration: none; font-weight: 600; display: inline-block; margin-bottom: -6px; }
+    .back-link:hover { text-decoration: underline; }
     .section-title { font-size: 0.85rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
     .control-group { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
     
@@ -62,7 +63,6 @@
     .stats-box { font-size: 0.8rem; line-height: 1.6; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
     .guide-box { font-size: 0.8rem; color: #475569; line-height: 1.5; background: var(--primary-light); border-left: 3px solid var(--primary); padding: 10px; border-radius: 4px; }
 
-    /* 메인 캔버스 영역 */
     #canvas-container { flex: 1; position: relative; background: #0f172a; overflow: hidden; }
     canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
     #hud {
@@ -77,6 +77,7 @@
 <body>
 
   <aside id="sidebar">
+    <a href="index.html" class="back-link">← 실험실 목록으로</a>
     <h1>N-Body 중력 시뮬레이터</h1>
 
     <div class="guide-box">
@@ -104,9 +105,9 @@
         <div class="slider-row">
           <div class="slider-header">
             <span>추가할 질량 ($m$)</span>
-            <strong id="massVal">1.0</strong>
+            <strong id="massVal">0.20</strong>
           </div>
-          <input type="range" id="newMass" min="0.05" max="5.0" step="0.05" value="1.0" oninput="document.getElementById('massVal').innerText = parseFloat(this.value).toFixed(2)">
+          <input type="range" id="newMass" min="0.01" max="5.0" step="0.01" value="0.20" oninput="document.getElementById('massVal').innerText = parseFloat(this.value).toFixed(2)">
         </div>
       </div>
     </div>
@@ -118,6 +119,7 @@
           <button id="playPauseBtn" class="primary" onclick="togglePlay()">일시정지</button>
           <button onclick="clearBodies()">모두 지우기</button>
         </div>
+        <button onclick="recenterCamera()">질량중심(CoM) 화면 중앙 정렬</button>
         <div class="slider-row">
           <div class="slider-header">
             <span>시뮬레이션 속도 ($\Delta t$ 배율)</span>
@@ -133,8 +135,8 @@
           <input type="range" id="trailLength" min="0" max="1200" step="50" value="400" oninput="document.getElementById('trailVal').innerText = this.value">
         </div>
         <label class="checkbox-row">
-          <input type="checkbox" id="comLock" checked>
-          <span>질량중심(CoM) 좌표계 고정</span>
+          <input type="checkbox" id="comFollow">
+          <span>질량중심(CoM) 부드럽게 추적</span>
         </label>
         <label class="checkbox-row">
           <input type="checkbox" id="showVectors">
@@ -168,15 +170,19 @@
     const ctx = canvas.getContext('2d');
 
     let width, height;
-    const SCALE = 180; // 물리 좌표 1단위당 픽셀 수
-    const G = 1.0;     // 정규화된 중력 상수
-    const SOFTENING = 0.015; // 특이점 방지용 소프트닝 파라미터
+    const SCALE = 180;
+    const G = 1.0;
+    const SOFTENING = 0.015;
 
     let bodies = [];
     let isRunning = true;
     let isDragging = false;
     let dragStart = { x: 0, y: 0 };
     let dragCurr = { x: 0, y: 0 };
+
+    // 카메라 좌표 (물리 좌표계 기준, 갑자기 시점이 튀는 현상 방지용)
+    let camX = 0;
+    let camY = 0;
 
     const PALETTE = ['#38bdf8', '#fb7185', '#facc15', '#4ade80', '#c084fc', '#fb923c'];
 
@@ -189,12 +195,18 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // 물리 좌표 <-> 화면 픽셀 변환
+    // 카메라 오프셋을 반영한 물리 좌표 <-> 화면 픽셀 변환
     function toScreen(x, y) {
-      return { x: width / 2 + x * SCALE, y: height / 2 - y * SCALE };
+      return {
+        x: width / 2 + (x - camX) * SCALE,
+        y: height / 2 - (y - camY) * SCALE
+      };
     }
     function toPhysics(px, py) {
-      return { x: (px - width / 2) / SCALE, y: (height / 2 - py) / SCALE };
+      return {
+        x: camX + (px - width / 2) / SCALE,
+        y: camY + (height / 2 - py) / SCALE
+      };
     }
 
     class Body {
@@ -237,7 +249,6 @@
       }
     }
 
-    // Velocity Verlet 심플렉틱 적분
     function stepVerlet(dt) {
       for (let b of bodies) {
         b.x += b.vx * dt + 0.5 * b.ax * dt * dt;
@@ -278,8 +289,8 @@
       }
     }
 
-    function centerOfMassCorrection() {
-      if (bodies.length === 0) return;
+    function getCenterOfMass() {
+      if (bodies.length === 0) return { x: 0, y: 0, vx: 0, vy: 0 };
       let totalM = 0, cx = 0, cy = 0, cvx = 0, cvy = 0;
       for (let b of bodies) {
         totalM += b.m;
@@ -288,13 +299,44 @@
         cvx += b.vx * b.m;
         cvy += b.vy * b.m;
       }
-      cx /= totalM; cy /= totalM; cvx /= totalM; cvy /= totalM;
+      return { x: cx / totalM, y: cy / totalM, vx: cvx / totalM, vy: cvy / totalM };
+    }
+
+    // 프리셋 초기 로드 시에만 원점 및 총 운동량 0으로 정렬
+    function normalizeInitialSystem() {
+      if (bodies.length === 0) return;
+      const com = getCenterOfMass();
       for (let b of bodies) {
-        b.x -= cx;
-        b.y -= cy;
-        b.vx -= cvx;
-        b.vy -= cvy;
+        b.x -= com.x;
+        b.y -= com.y;
+        b.vx -= com.vx;
+        b.vy -= com.vy;
+        b.trail = [];
       }
+      camX = 0;
+      camY = 0;
+    }
+
+    // 수동으로 질량중심을 화면 중앙에 맞출 때 (기존 궤적도 함께 평행이동하여 끊김 방지)
+    function recenterCamera() {
+      if (bodies.length === 0) {
+        camX = 0;
+        camY = 0;
+        return;
+      }
+      const com = getCenterOfMass();
+      for (let b of bodies) {
+        b.x -= com.x;
+        b.y -= com.y;
+        b.vx -= com.vx;
+        b.vy -= com.vy;
+        for (let t of b.trail) {
+          t.x -= com.x;
+          t.y -= com.y;
+        }
+      }
+      camX = 0;
+      camY = 0;
     }
 
     function updateStats() {
@@ -304,7 +346,7 @@
         K += 0.5 * b1.m * (b1.vx * b1.vx + b1.vy * b1.vy);
         for (let j = i + 1; j < bodies.length; j++) {
           const b2 = bodies[j];
-          const dist = Math.hypot(b2.x - b1.x, b2.y - b1.y + SOFTENING);
+          const dist = Math.hypot(b2.x - b1.x, b2.y - b1.y, SOFTENING);
           U -= (G * b1.m * b2.m) / dist;
         }
       }
@@ -357,12 +399,14 @@
         bodies.push(new Body(0.7, -0.3, -0.3, 0.4, 1.0, '#fb7185'));
         bodies.push(new Body(0.1, -0.6, 0.1, -0.1, 0.8, '#facc15'));
       }
-      centerOfMassCorrection();
+      normalizeInitialSystem();
       computeAccelerations();
     }
 
     function clearBodies() {
       bodies = [];
+      camX = 0;
+      camY = 0;
       document.getElementById('presetName').innerText = '사용자 정의 궤도';
     }
 
@@ -372,7 +416,7 @@
       btn.innerText = isRunning ? '일시정지' : '재생';
     }
 
-    // 마우스 드래그로 천체 추가 (Slingshot)
+    // 마우스 드래그로 천체 추가 (생성 시 좌표계를 강제 리셋하지 않으므로 시점이 전혀 튀지 않음)
     canvas.addEventListener('mousedown', e => {
       const rect = canvas.getBoundingClientRect();
       dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -397,6 +441,8 @@
 
     function drawArrow(x1, y1, x2, y2, color) {
       const headlen = 8;
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      if (len < 2) return;
       const angle = Math.atan2(y2 - y1, x2 - x1);
       ctx.strokeStyle = color;
       ctx.lineWidth = 2;
@@ -421,27 +467,36 @@
         for (let s = 0; s < subSteps; s++) {
           stepVerlet(dt);
         }
-        if (document.getElementById('comLock').checked) {
-          centerOfMassCorrection();
-        }
         for (let b of bodies) {
           b.trail.push({ x: b.x, y: b.y });
           while (b.trail.length > maxTrail) b.trail.shift();
         }
       }
 
+      // 질량중심 부드럽게 추적 옵션 활성화 시 카메라만 서서히 보간 이동 (순간이동 방지)
+      if (document.getElementById('comFollow').checked && bodies.length > 0) {
+        const com = getCenterOfMass();
+        camX += (com.x - camX) * 0.04;
+        camY += (com.y - camY) * 0.04;
+      }
+
       updateStats();
 
-      // 배경 및 그리드 렌더링
+      // 배경 렌더링
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, width, height);
 
+      // 월드 좌표에 고정된 배경 그리드 렌더링
       ctx.strokeStyle = 'rgba(255,255,255,0.04)';
       ctx.lineWidth = 1;
-      for (let gx = (width / 2) % (SCALE / 2); gx < width; gx += SCALE / 2) {
+      const gridStep = SCALE / 2;
+      const offsetX = ((width / 2 - camX * SCALE) % gridStep + gridStep) % gridStep;
+      const offsetY = ((height / 2 + camY * SCALE) % gridStep + gridStep) % gridStep;
+
+      for (let gx = offsetX; gx < width; gx += gridStep) {
         ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, height); ctx.stroke();
       }
-      for (let gy = (height / 2) % (SCALE / 2); gy < height; gy += SCALE / 2) {
+      for (let gy = offsetY; gy < height; gy += gridStep) {
         ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(width, gy); ctx.stroke();
       }
 
