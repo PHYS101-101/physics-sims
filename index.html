@@ -227,12 +227,36 @@
             </div>
             <a href="electric_field_sandbox.html" class="btn">시뮬레이션 실행하기 →</a>
         </div>
+
+        <!-- 시뮬레이션 3: N-Body 중력 시뮬레이션 (신규 추가) -->
+        <div class="card">
+            <div>
+                <div class="tag-row">
+                    <span class="tag">고전역학 (Classical Mechanics)</span>
+                    <span class="tag sub">N체 천체역학</span>
+                </div>
+                <h3>3. N-Body 중력장 및 삼체 특수해 랩</h3>
+                <p>
+                    만유인력 법칙과 심플렉틱 수치 적분을 바탕으로 다체 중력장의 궤도 역학을 실험하고, 이체 및 삼체 문제의 특수해를 탐구합니다[cite: 1].
+                </p>
+                <div class="formula-box">
+                    $$\mathbf{a}_i = G \sum_{j \neq i} \frac{m_j (\mathbf{r}_j - \mathbf{r}_i)}{\left( \|\mathbf{r}_j - \mathbf{r}_i\|^2 + \epsilon^2 \right)^{3/2}}, \quad E = T + U$$
+                </div>
+                <ul class="feature-list">
+                    <li><b>특수해 프리셋:</b> 몽고메리 8자 해, 라그랑주 정삼각형($L_4, L_5$), 쌍성계, 혼돈 삼체 등 즉시 로드</li>
+                    <li><b>슬링샷 천체 추가:</b> 캔버스 마우스 드래그를 통해 임의의 질량과 초기 속도를 가진 천체 무한정 추가</li>
+                    <li><b>에너지 모니터링:</b> 실시간 운동 에너지($T$), 퍼텐셜 에너지($U$), 총 역학적 에너지 보존 확인</li>
+                </ul>
+            </div>
+            <a href="gravity_simulation.html" class="btn">시뮬레이션 실행하기 →</a>
+        </div>
     </div>
 
     <footer>
-        Interactive Physics Simulation Lab &bull; Powered by HTML5 Canvas &amp; KaTeX
+        Interactive Physics Simulation Lab &bull; Powered by HTML5 Canvas &amp; KaTeX[cite: 1]
     </footer>
 </div>
 
 </body>
 </html>
+```[cite: 1]
